@@ -71,7 +71,7 @@ class SO3:
         """
         # Guaranteed to be SO(3) through composition, so set property directly.
         so3 = cls()
-        so3._matrix = (SO3.rot_z(yaw) @ SO3.rot_y(pitch) @ SO3.rot_x(roll)).matrix
+        so3._matrix = ((SO3.rot_z(yaw).__matmul__(SO3.rot_y(pitch))).__matmul__(SO3.rot_x(roll))).matrix
         return so3
 
     @property
@@ -146,7 +146,7 @@ class SO3:
         :param x: 3D column vector to be transformed (or a matrix of 3D column vectors)
         :return: The resulting rotated 3D column vectors
         """
-        return self.matrix @ x
+        return np.matmul(self.matrix, x)
 
     def compose(self, Y):
         """Compose this element with another element on the right
@@ -154,7 +154,7 @@ class SO3:
         :param Y: The other SO3 element
         :return: This element composed with Y
         """
-        return SO3(self.matrix @ Y.matrix)
+        return SO3(np.matmul(self.matrix, Y.matrix))
 
     def adjoint(self):
         """The adjoint at the element.
@@ -171,7 +171,7 @@ class SO3:
         if not (isinstance(theta_vec, np.ndarray) and theta_vec.shape == (3, 1)):
             raise TypeError('Argument must be a 3D column vector')
 
-        return self @ SO3.Exp(theta_vec)
+        return self.__matmul__(SO3.Exp(theta_vec))
 
     def ominus(self, X):
         """Computes the tangent space vector at X between X and this element Y.
@@ -181,7 +181,7 @@ class SO3:
         """
         if not isinstance(X, SO3):
             raise TypeError('Argument must be an SO3')
-        return (X.inverse() @ self).Log()
+        return (X.inverse().__matmul__(self)).Log()
 
     def jac_inverse_X_wrt_X(X):
         """Computes the Jacobian of the inverse operation X.inverse() with respect to the element X.
@@ -196,7 +196,7 @@ class SO3:
         :param x: The 3D column vector x.
         :return: The Jacobian (3x3 matrix)
         """
-        return -X.matrix @ SO3.hat(x)
+        return np.matmul(-X.matrix, SO3.hat(x))
 
     def jac_action_Xx_wrt_x(X):
         """Computes the Jacobian of the action X.action(x) with respect to the element X.
@@ -308,7 +308,7 @@ class SO3:
         u_vec = theta_vec / theta
         u_hat = SO3.hat(u_vec)
 
-        R = np.identity(3) + np.sin(theta) * u_hat + (1 - np.cos(theta)) * (u_hat @ u_hat)
+        R = np.identity(3) + np.sin(theta) * u_hat + (1 - np.cos(theta)) * (np.matmul(u_hat, u_hat))
 
         return SO3(R)
 
@@ -343,7 +343,7 @@ class SO3:
         theta_hat = SO3.hat(theta_vec)
 
         return np.identity(3) - ((1 - np.cos(theta)) / (theta ** 2)) * theta_hat + (
-                (theta - np.sin(theta)) / (theta ** 3)) * theta_hat @ theta_hat
+                (theta - np.sin(theta)) / (theta ** 3)) * np.matmul(theta_hat, theta_hat)
 
     @staticmethod
     def jac_left(theta_vec):
@@ -359,7 +359,7 @@ class SO3:
         theta_hat = SO3.hat(theta_vec)
 
         return np.identity(3) + ((1 - np.cos(theta)) / (theta ** 2)) * theta_hat + (
-                (theta - np.sin(theta)) / (theta ** 3)) * theta_hat @ theta_hat
+                (theta - np.sin(theta)) / (theta ** 3)) * np.matmul(theta_hat, theta_hat)
 
     @staticmethod
     def jac_right_inverse(theta_vec):
@@ -375,7 +375,7 @@ class SO3:
         theta_hat = SO3.hat(theta_vec)
 
         return np.identity(3) + 0.5 * theta_hat + (
-                (1 / theta ** 2) - (1 + np.cos(theta)) / (2 * theta * np.sin(theta))) * theta_hat @ theta_hat
+                (1 / theta ** 2) - (1 + np.cos(theta)) / (2 * theta * np.sin(theta))) * np.matmul(theta_hat, theta_hat)
 
     @staticmethod
     def jac_left_inverse(theta_vec):
@@ -391,7 +391,7 @@ class SO3:
         theta_hat = SO3.hat(theta_vec)
 
         return np.identity(3) - 0.5 * theta_hat + (
-                (1 / theta ** 2) - (1 + np.cos(theta)) / (2 * theta * np.sin(theta))) * theta_hat @ theta_hat
+                (1 / theta ** 2) - (1 + np.cos(theta)) / (2 * theta * np.sin(theta))) * np.matmul(theta_hat, theta_hat)
 
     @staticmethod
     def jac_X_oplus_tau_wrt_X(theta_vec):

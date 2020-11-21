@@ -85,7 +85,7 @@ class SE3:
         :param Y: The other Pose3 element
         :return: This element X composed with Y
         """
-        return SE3((X.rotation @ Y.rotation, X.rotation * Y.translation + X.translation))
+        return SE3((X.rotation.__matmul__(Y.rotation), X.rotation * Y.translation + X.translation))
 
     def inverse(self):
         """Compute the inverse of the current element X.
@@ -109,7 +109,7 @@ class SE3:
         """
         R = self.rotation.matrix
 
-        return np.block([[R, SO3.hat(self.translation) @ R],
+        return np.block([[R, np.matmul(SO3.hat(self.translation), R)],
                          [np.zeros((3, 3)), R]])
 
     def oplus(X, xi_vec):
@@ -121,7 +121,7 @@ class SE3:
         if not (isinstance(xi_vec, np.ndarray) and xi_vec.shape == (6, 1)):
             raise TypeError('Argument must be a 6D column vector')
 
-        return X @ SE3.Exp(xi_vec)
+        return X.__matmul__(SE3.Exp(xi_vec))
 
     def ominus(Y, X):
         """Computes the tangent space vector at X between X and this element Y.
@@ -131,7 +131,7 @@ class SE3:
         """
         if not isinstance(X, SE3):
             raise TypeError('Argument must be an SE3')
-        return (X.inverse() @ Y).Log()
+        return (X.inverse().__matmul__(Y)).Log()
 
     def Log(self):
         """Computes the tangent space vector xi_vec at the current element X.
@@ -152,7 +152,7 @@ class SE3:
         V_inv = np.identity(3) - 0.5 * theta_hat + np.linalg.matrix_power(theta_hat, 2) * (
                 1 - a / (2 * b)) / (theta ** 2)
 
-        rho_vec = V_inv @ self.translation
+        rho_vec = np.matmul(V_inv, self.translation)
 
         return np.vstack((rho_vec, theta_vec))
 
@@ -169,7 +169,7 @@ class SE3:
         :param x: The 3D column vector x.
         :return: The Jacobian (6x3 matrix)
         """
-        return np.block([[X.rotation.matrix, -(X.rotation.matrix @ SO3.hat(x))]])
+        return np.block([[X.rotation.matrix, -(np.matmul(X.rotation.matrix, SO3.hat(x)))]])
 
     def jac_action_Xx_wrt_x(X):
         """Computes the Jacobian of the action X.action(x) with respect to the element X.
@@ -289,7 +289,7 @@ class SE3:
         :return: The Jacobian (6x6 matrix)
         """
         R_Y_inv = Y.rotation.inverse().matrix
-        return np.block([[R_Y_inv, -(R_Y_inv @ SO3.hat(Y.translation))],
+        return np.block([[R_Y_inv, -(np.matmul(R_Y_inv, SO3.hat(Y.translation)))],
                          [np.zeros((3, 3)), R_Y_inv]])
 
     @staticmethod
@@ -313,13 +313,13 @@ class SE3:
         theta_hat = SO3.hat(theta_vec)
 
         return 0.5 * rho_hat + ((theta - np.sin(theta)) / theta ** 3) * \
-               (theta_hat @ rho_hat + rho_hat @ theta_hat + theta_hat @ rho_hat @ theta_hat) - \
+               (np.matmul(theta_hat, rho_hat) + np.matmul(rho_hat, theta_hat) + np.matmul(np.matmul(theta_hat, rho_hat), theta_hat)) - \
                ((1 - 0.5 * theta ** 2 - np.cos(theta)) / theta ** 4) * \
-               (theta_hat @ theta_hat @ rho_hat + rho_hat @ theta_hat @ theta_hat -
-                3 * theta_hat @ rho_hat @ theta_hat) - \
+               (np.matmul(np.matmul(theta_hat, theta_hat), rho_hat) + np.matmul(np.matmul(rho_hat, theta_hat), theta_hat) -
+                3 * np.matmul(np.matmul(theta_hat, rho_hat), theta_hat)) - \
                0.5 * ((1 - 0.5 * theta ** 2 - np.cos(theta)) / theta ** 4 - 3 *
                       ((theta - np.sin(theta) - (theta ** 3 / 6)) / theta ** 5)) * \
-               (theta_hat @ rho_hat @ theta_hat @ theta_hat + theta_hat @ theta_hat @ rho_hat @ theta_hat)
+               (np.matmul(np.matmul(np.matmul(theta_hat, rho_hat), theta_hat), theta_hat) + np.matmul(np.matmul(np.matmul(theta_hat, theta_hat), rho_hat), theta_hat))
 
     @staticmethod
     def _Q_right(xi_vec):
@@ -367,7 +367,7 @@ class SE3:
         J_r_inv_theta = SO3.jac_right_inverse(theta_vec)
         Q_r = SE3._Q_right(xi_vec)
 
-        return np.block([[J_r_inv_theta, -J_r_inv_theta @ Q_r @ J_r_inv_theta],
+        return np.block([[J_r_inv_theta, np.matmul(np.matmul(-J_r_inv_theta, Q_r), J_r_inv_theta)],
                          [np.zeros((3, 3)), J_r_inv_theta]])
 
     @staticmethod
@@ -382,7 +382,7 @@ class SE3:
         J_l_inv_theta = SO3.jac_left_inverse(theta_vec)
         Q_l = SE3._Q_left(xi_vec)
 
-        return np.block([[J_l_inv_theta, -J_l_inv_theta @ Q_l @ J_l_inv_theta],
+        return np.block([[J_l_inv_theta, np.matmul(np.matmul(-J_l_inv_theta, Q_l), J_l_inv_theta)],
                          [np.zeros((3, 3)), J_l_inv_theta]])
 
     @staticmethod
